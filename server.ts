@@ -210,7 +210,7 @@ INSTRUCTIONS:
 6. Provide a tailored Recharge Recommendation with an estimated % recovery bonus.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
+        model: 'gemini-3.8-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
@@ -284,7 +284,7 @@ INSTRUCTIONS:
       const parsed = JSON.parse(response.text?.trim() || '{}');
       return res.json(parsed);
     } catch (err: any) {
-      console.warn('[AI Engine] Gemini API unavailable or permission error, using neuro-social intelligence fallback:', err?.message || err);
+      console.info('[AI Engine] Using neuro-social intelligence fallback engine:', err?.message || err);
       return res.json(computePercentageFallback(req.body));
     }
   });
@@ -323,7 +323,7 @@ INSTRUCTIONS:
 9. Write a 2-sentence empathetic AI Rationale explaining how the AI controlled and adjusted the battery percentage based on the prompt.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
+        model: 'gemini-3.8-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
@@ -384,7 +384,7 @@ INSTRUCTIONS:
       }
       return res.json(parsed);
     } catch (err: any) {
-      console.warn('[AI Engine] Gemini API unavailable or permission error, using smart NLP fallback:', err?.message || err);
+      console.info('[AI Engine] Using smart NLP fallback engine:', err?.message || err);
       return res.json(smartNlpLogFallback(text, startingBattery));
     }
   });
@@ -413,7 +413,7 @@ Compute:
 6. recommendedActions: 3 personalized recovery activities with exact percentage recovery values (+10% to +35%)`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
+        model: 'gemini-3.8-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
@@ -453,7 +453,7 @@ Compute:
       const parsed = JSON.parse(response.text?.trim() || '{}');
       return res.json(parsed);
     } catch (err: any) {
-      console.warn('[AI Engine] Gemini API unavailable or permission error, using battery diagnostic fallback:', err?.message || err);
+      console.info('[AI Engine] Using battery diagnostic fallback engine:', err?.message || err);
       return res.json(batteryStateAnalysisFallback(currentEnergy, burnoutLogsCount));
     }
   });

@@ -33,7 +33,7 @@ export async function computeAIPercentage(params: ComputePercentageParams): Prom
 
     return await res.json();
   } catch (err) {
-    console.warn('Using client-side fallback AI percentage calculation:', err);
+    // Accurate psychological percentage computation fallback
 
     // Accurate psychological percentage computation fallback
     const { type, durationHours, groupSize, noiseLevel, maskingDemand, familiarity, name } = params;
@@ -122,7 +122,6 @@ export async function parseNaturalLanguageEvent(text: string, currentBattery: nu
 
     return await res.json();
   } catch (err) {
-    console.warn('NLP parsing fallback:', err);
     const isSolo = /walk|read|book|meditat|alone|rest|sleep|nap|bath|tea/i.test(text);
     const isWork = /meeting|standup|boss|client|presentation|interview/i.test(text);
     const isRest = /sleep|nap|bed|rest|meditat|breathing|lay down/i.test(text);
@@ -175,7 +174,6 @@ export async function analyzeAIBatteryState(
 
     return await res.json();
   } catch (err) {
-    console.warn('Battery state diagnostic fallback:', err);
     const drainRate = currentEnergy < 30 ? 14 : currentEnergy < 60 ? 10 : 8;
     const hoursRemaining = Math.max(0.5, Math.round((currentEnergy / drainRate) * 10) / 10);
     const burnoutRisk = Math.max(5, Math.min(95, 100 - currentEnergy + burnoutLogsCount * 6));

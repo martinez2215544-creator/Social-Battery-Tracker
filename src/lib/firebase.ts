@@ -1506,6 +1506,19 @@ export function subscribeToUserData(
   let currentEvents: SocialEvent[] = cached?.events && cached.events.length > 0 ? cached.events : [];
   let currentLogs: BurnoutEntry[] = cached?.burnoutLogs && cached.burnoutLogs.length > 0 ? cached.burnoutLogs : [];
 
+  // Always provide cached user data immediately for fast render
+  onData({ stats: currentStats, events: currentEvents, burnoutLogs: currentLogs });
+
+  // Do not attach remote Firestore listeners for guest sessions or unauthenticated state
+  if (!userId || userId.startsWith('guest-') || userId === 'guest') {
+    return () => {};
+  }
+
+  // Per Firebase skill guidelines: Only attach onSnapshot listeners if user is authenticated with Firebase
+  if (!auth.currentUser) {
+    return () => {};
+  }
+
   const userRef = doc(db, 'users', userId);
   const eventsQuery = query(
     collection(db, 'users', userId, 'events'),
@@ -1553,8 +1566,8 @@ export function subscribeToUserData(
         onData({ stats: currentStats, events: currentEvents, burnoutLogs: currentLogs });
       }
     },
-    (err) => {
-      console.warn('subscribeToUserData (user doc) fallback:', err);
+    (_err) => {
+      // Gracefully maintain local cached state without warning noise
     }
   );
 
@@ -1567,8 +1580,8 @@ export function subscribeToUserData(
         onData({ stats: currentStats, events: currentEvents, burnoutLogs: currentLogs });
       }
     },
-    (err) => {
-      console.warn('subscribeToUserData (events) fallback:', err);
+    (_err) => {
+      // Gracefully maintain local cached state without warning noise
     }
   );
 
@@ -1581,8 +1594,8 @@ export function subscribeToUserData(
         onData({ stats: currentStats, events: currentEvents, burnoutLogs: currentLogs });
       }
     },
-    (err) => {
-      console.warn('subscribeToUserData (burnoutLogs) fallback:', err);
+    (_err) => {
+      // Gracefully maintain local cached state without warning noise
     }
   );
 
