@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with battery status, presence, role, and metadata",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "userName": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "currentEnergy": { "type": "number" },
+        "baseCapacity": { "type": "number" },
+        "presence": { "type": "string", "enum": ["active", "away", "dnd"] },
+        "role": { "type": "string", "enum": ["admin", "user", "pending_admin"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "isGuest": { "type": "boolean" }
+      },
+      "required": ["userId", "userName", "currentEnergy"]
+    },
+    "SocialEvent": {
+      "title": "Social Event",
+      "description": "Logged event affecting social battery",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "categoryLabel": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "displayTime": { "type": "string" },
+        "durationHours": { "type": "number" },
+        "durationLabel": { "type": "string" },
+        "energyImpact": { "type": "number" },
+        "impactLabel": { "type": "string" },
+        "mood": { "type": "string" },
+        "notes": { "type": "string" },
+        "iconName": { "type": "string" }
+      },
+      "required": ["id", "userId", "name", "type", "energyImpact"]
+    },
+    "BurnoutLog": {
+      "title": "Burnout Log",
+      "description": "Reflection note in quiet room for burnout prevention",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "isoDate": { "type": "string" },
+        "title": { "type": "string" },
+        "reflection": { "type": "string" },
+        "icon": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "reflection"]
+    },
+    "Announcement": {
+      "title": "System Announcement",
+      "description": "Admin broadcast messages and battery advisories",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["advisory", "event", "maintenance", "tip"] },
+        "createdAt": { "type": "string" },
+        "authorName": { "type": "string" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "title", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile document with role"
+    },
+    "/users/{userId}/events/{eventId}": {
+      "schema": "SocialEvent",
+      "description": "Social events logged by user"
+    },
+    "/users/{userId}/burnoutLogs/{logId}": {
+      "schema": "BurnoutLog",
+      "description": "Quiet room burnout reflections"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "Admin broadcasts and announcements"
+    }
+  }
+}

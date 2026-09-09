@@ -1,0 +1,6 @@
+{
+  "name": "Social Battery Tracker",
+  "description": "Ebb & Flow - Track social energy, log events, monitor burnout, plan recharges, and manage members with an Administrator Console and Firestore database.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
