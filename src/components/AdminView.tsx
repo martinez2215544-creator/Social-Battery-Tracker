@@ -637,7 +637,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 const isSuperAdmin = user.email?.toLowerCase() === PRIMARY_ADMIN_EMAIL.toLowerCase();
                 const isCurrentSessionUser = user.userId === currentUserId;
                 const isPendingAdmin = user.role === 'pending_admin';
-                const isInvitedAdmin = user.role === 'invited_admin';
+                const isInvitedAdmin = user.role === 'invited_admin' || user.adminInvitation?.status === 'pending';
                 const isAdmin = user.role === 'admin';
 
                 return (

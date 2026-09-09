@@ -1206,16 +1206,26 @@ export async function initUserDatabase(user: FirebaseUser | AppUserSession): Pro
     // 1. Process User Document
     if (userSnapRes.status === 'fulfilled' && userSnapRes.value.exists()) {
       const data = userSnapRes.value.data();
-      const userRole: UserRole = (data.role as UserRole) || defaultRole;
+      const userRole: UserRole = isSuperAdminEmail ? 'admin' : ((data.role as UserRole) || defaultRole);
+
+      let resolvedUserName = data.userName || initialStats.userName;
+      if (!isSuperAdminEmail && (resolvedUserName === 'Admin Nebo Martinez' || resolvedUserName === 'Nebo Martinez')) {
+        resolvedUserName = user.displayName || user.email?.split('@')[0] || 'Community Member';
+      }
+
+      let resolvedEmail = data.email || user.email || initialStats.email || '';
+      if (!isSuperAdminEmail && resolvedEmail.toLowerCase() === PRIMARY_ADMIN_EMAIL.toLowerCase()) {
+        resolvedEmail = user.email || '';
+      }
 
       finalStats = {
         currentEnergy: data.currentEnergy ?? initialStats.currentEnergy,
         baseCapacity: data.baseCapacity ?? initialStats.baseCapacity,
         avatarUrl: data.avatarUrl || initialStats.avatarUrl,
-        userName: data.userName || initialStats.userName,
+        userName: resolvedUserName,
         presence: data.presence || initialStats.presence,
         role: userRole,
-        email: data.email || user.email || initialStats.email || '',
+        email: resolvedEmail,
         userId: user.uid,
         createdAt: data.createdAt || now,
         updatedAt: data.updatedAt || now,
@@ -1305,23 +1315,37 @@ export async function initUserDatabase(user: FirebaseUser | AppUserSession): Pro
 }
 
 export async function syncUserStatsToDb(userId: string, stats: UserStats) {
+  // Guard against overwriting non-super-admin user's real name/email with Super Admin credentials
+  const isSuperAdmin = stats.email?.toLowerCase() === PRIMARY_ADMIN_EMAIL.toLowerCase();
+  const safeStats = { ...stats };
+  if (!isSuperAdmin) {
+    if (safeStats.userName === 'Admin Nebo Martinez' || safeStats.userName === 'Nebo Martinez') {
+      const cachedData = getStoredUserData(userId);
+      safeStats.userName = cachedData?.stats?.userName || 'Community Member';
+    }
+    if (safeStats.email && safeStats.email.toLowerCase() === PRIMARY_ADMIN_EMAIL.toLowerCase()) {
+      const cachedData = getStoredUserData(userId);
+      safeStats.email = cachedData?.stats?.email || '';
+    }
+  }
+
   // 1. Immediately update local storage cache so page refresh is instant and lossless
-  saveStoredUserData(userId, { stats });
+  saveStoredUserData(userId, { stats: safeStats });
 
   // 2. Also update local session and stored account if name/avatar changed
   const session = getLocalSession();
   if (session && session.uid === userId) {
     let changed = false;
-    if (stats.userName && session.displayName !== stats.userName) {
-      session.displayName = stats.userName;
+    if (safeStats.userName && session.displayName !== safeStats.userName) {
+      session.displayName = safeStats.userName;
       changed = true;
     }
-    if (stats.avatarUrl && session.photoURL !== stats.avatarUrl) {
-      session.photoURL = stats.avatarUrl;
+    if (safeStats.avatarUrl && session.photoURL !== safeStats.avatarUrl) {
+      session.photoURL = safeStats.avatarUrl;
       changed = true;
     }
-    if (stats.role && session.role !== stats.role) {
-      session.role = stats.role;
+    if (safeStats.role && session.role !== safeStats.role) {
+      session.role = safeStats.role;
       changed = true;
     }
     if (changed) {
@@ -1330,15 +1354,15 @@ export async function syncUserStatsToDb(userId: string, stats: UserStats) {
   }
 
   // Also update stored accounts list
-  if (stats.email) {
+  if (safeStats.email) {
     const accounts = getStoredAccounts();
     const target = accounts.find(
-      (a) => a.uid === userId || a.email.toLowerCase() === stats.email?.toLowerCase()
+      (a) => a.uid === userId || a.email.toLowerCase() === safeStats.email?.toLowerCase()
     );
     if (target) {
-      if (stats.userName) target.displayName = stats.userName;
-      if (stats.avatarUrl) target.photoURL = stats.avatarUrl;
-      if (stats.role) target.role = stats.role;
+      if (safeStats.userName) target.displayName = safeStats.userName;
+      if (safeStats.avatarUrl) target.photoURL = safeStats.avatarUrl;
+      if (safeStats.role) target.role = safeStats.role;
       try {
         localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(accounts));
         window.dispatchEvent(new Event('social_battery_accounts_updated'));
@@ -1352,7 +1376,7 @@ export async function syncUserStatsToDb(userId: string, stats: UserStats) {
     await setDoc(
       userRef,
       {
-        ...stats,
+        ...safeStats,
         updatedAt: new Date().toISOString(),
       },
       { merge: true }
@@ -1519,7 +1543,7 @@ export function subscribeToUserData(
             userEmail.split('@')[0] ||
             (isSuperAdminEmail ? 'Admin Nebo Martinez' : 'Social Explorer'),
           presence: d.presence || currentStats?.presence || 'active',
-          role: (d.role as UserRole) || currentStats?.role || 'user',
+          role: isSuperAdminEmail ? 'admin' : ((d.role as UserRole) || currentStats?.role || 'user'),
           email: userEmail,
           userId: docSnap.id,
           updatedAt: d.updatedAt,
@@ -1627,18 +1651,20 @@ export function subscribeToAllUsers(onUsers: (users: UserProfileRecord[]) => voi
       ) {
         existingIds.add(acc.uid);
         if (acc.email) existingEmails.add(acc.email.toLowerCase());
+        const cached = getStoredUserData(acc.uid);
         mergedList.push({
           userId: acc.uid,
           email: acc.email,
-          userName: acc.displayName || acc.email.split('@')[0],
-          avatarUrl: acc.photoURL || INITIAL_USER_STATS.avatarUrl,
-          currentEnergy: 75,
-          baseCapacity: 100,
-          presence: 'active',
-          role: acc.role || getDefaultRoleForUser(acc.email),
+          userName: cached?.stats?.userName || acc.displayName || acc.email.split('@')[0],
+          avatarUrl: cached?.stats?.avatarUrl || acc.photoURL || INITIAL_USER_STATS.avatarUrl,
+          currentEnergy: cached?.stats?.currentEnergy ?? 75,
+          baseCapacity: cached?.stats?.baseCapacity ?? 100,
+          presence: cached?.stats?.presence || 'active',
+          role: cached?.stats?.role || acc.role || getDefaultRoleForUser(acc.email),
           createdAt: acc.createdAt || new Date().toISOString(),
-          updatedAt: acc.createdAt || new Date().toISOString(),
+          updatedAt: cached?.stats?.updatedAt || acc.createdAt || new Date().toISOString(),
           isGuest: false,
+          adminInvitation: cached?.stats?.adminInvitation || (acc as any).adminInvitation,
         });
       }
     });
@@ -1650,7 +1676,17 @@ export function subscribeToAllUsers(onUsers: (users: UserProfileRecord[]) => voi
         !existingIds.has(member.userId) &&
         (!member.email || !existingEmails.has(member.email.toLowerCase()))
       ) {
-        mergedList.push(member);
+        const cached = getStoredUserData(member.userId);
+        mergedList.push({
+          ...member,
+          userName: cached?.stats?.userName || member.userName,
+          avatarUrl: cached?.stats?.avatarUrl || member.avatarUrl,
+          currentEnergy: cached?.stats?.currentEnergy ?? member.currentEnergy,
+          presence: cached?.stats?.presence || member.presence,
+          role: cached?.stats?.role || member.role,
+          adminInvitation: cached?.stats?.adminInvitation,
+          updatedAt: cached?.stats?.updatedAt || member.updatedAt,
+        });
       }
     });
 
@@ -2347,20 +2383,37 @@ export async function fetchUserLogsAdmin(userId: string): Promise<{
   burnoutLogs: BurnoutEntry[];
 }> {
   try {
-    const eventsSnap = await getDocs(
-      query(collection(db, 'users', userId, 'events'), orderBy('timestamp', 'desc'))
-    );
-    const burnoutSnap = await getDocs(
-      query(collection(db, 'users', userId, 'burnoutLogs'), orderBy('isoDate', 'desc'))
-    );
+    const eventsSnap = await getDocs(collection(db, 'users', userId, 'events'));
+    const burnoutSnap = await getDocs(collection(db, 'users', userId, 'burnoutLogs'));
 
-    const events = eventsSnap.docs.map((d) => d.data() as SocialEvent);
-    const burnoutLogs = burnoutSnap.docs.map((d) => d.data() as BurnoutEntry);
+    let events = eventsSnap.docs.map((d) => d.data() as SocialEvent);
+    let burnoutLogs = burnoutSnap.docs.map((d) => d.data() as BurnoutEntry);
+
+    // Fallback to local storage cache if Firestore has no events for this user
+    if (events.length === 0) {
+      const cached = getStoredUserData(userId);
+      if (cached?.events && cached.events.length > 0) {
+        events = cached.events;
+      }
+    }
+    if (burnoutLogs.length === 0) {
+      const cached = getStoredUserData(userId);
+      if (cached?.burnoutLogs && cached.burnoutLogs.length > 0) {
+        burnoutLogs = cached.burnoutLogs;
+      }
+    }
+
+    events.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+    burnoutLogs.sort((a, b) => (b.isoDate || '').localeCompare(a.isoDate || ''));
 
     return { events, burnoutLogs };
   } catch (error) {
-    console.error('Failed to fetch user logs for admin:', error);
-    return { events: [], burnoutLogs: [] };
+    console.warn('Firestore fetchUserLogsAdmin fallback to local store:', error);
+    const cached = getStoredUserData(userId);
+    return {
+      events: cached?.events || [],
+      burnoutLogs: cached?.burnoutLogs || [],
+    };
   }
 }
 

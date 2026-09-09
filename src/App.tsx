@@ -208,17 +208,19 @@ export default function App() {
   // Initial energy baseline check for empty event history
   useEffect(() => {
     // If a brand new account has zero events logged and no recorded energy yet, baseline to 100%
-    if (events.length === 0 && userStats.currentEnergy === undefined) {
-      const updated: UserStats = {
-        ...userStats,
-        currentEnergy: 100,
-      };
-      setUserStats(updated);
-      if (currentUser) {
-        syncUserStatsToDb(currentUser.uid, updated);
-      }
+    if (events.length === 0 && (userStats.currentEnergy === undefined || isNaN(userStats.currentEnergy))) {
+      setUserStats((prev) => {
+        const updated: UserStats = {
+          ...prev,
+          currentEnergy: 100,
+        };
+        if (currentUser) {
+          syncUserStatsToDb(currentUser.uid, updated);
+        }
+        return updated;
+      });
     }
-  }, [events.length, userStats, currentUser]);
+  }, [events.length, userStats.currentEnergy, currentUser]);
 
   // Selected event calculation
   const selectedEvent = events.find((e) => e.id === selectedEventId) || null;
@@ -602,9 +604,13 @@ export default function App() {
   };
 
   // Determine effective user role
-  const effectiveRole: UserRole =
-    userStats.role ||
-    (currentUser?.email?.toLowerCase() === 'martinez2215544@ceu.edu.ph' ? 'admin' : 'user');
+  const isSuperAdmin =
+    currentUser?.email?.toLowerCase() === 'martinez2215544@ceu.edu.ph' ||
+    userStats.email?.toLowerCase() === 'martinez2215544@ceu.edu.ph';
+
+  const effectiveRole: UserRole = isSuperAdmin
+    ? 'admin'
+    : (userStats.role || 'user');
 
   // Determine if user has a pending admin role invitation
   const hasAdminInvite = userStats.role === 'invited_admin' || userStats.adminInvitation?.status === 'pending';
